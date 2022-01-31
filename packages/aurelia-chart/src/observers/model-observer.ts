@@ -1,81 +1,66 @@
-import { BindingEngine, inject, Disposable, CollectionObserver } from 'aurelia-framework';
+import { CollectionKind, ICollectionObserver, ICollectionSubscriber, IObserver, ISubscriber } from '@aurelia/runtime';
+import { IObserverLocator } from 'aurelia';
 
-@inject(BindingEngine)
-export class ModelObserver {
-  throttle = 100;
+export class ModelObserver implements ISubscriber, ICollectionSubscriber {
+  constructor(private observerLocator: IObserverLocator, model: unknown, private onChange: () => void, private throttle: number) {
+    this.getObservers(model);
+  }
 
-  private throttleTimeout?: ReturnType<typeof setTimeout>;
-  private activeSubscriptions: Disposable[] = [];
+  throttleTimeout?: ReturnType<typeof setTimeout>;
+  observers: (IObserver | ICollectionObserver<CollectionKind.array>)[] = [];
+  throttledHandler = () => {
+    if (this.throttle <= 0) {
+      return this.onChange();
+    }
 
-  constructor(private bindingEngine: BindingEngine) { }
-
-  observe = (model: unknown, onChange: () => void) => {
-    const subscriptions: CollectionObserver['subscribe'][] = [];
-    this.getAllSubscriptions(model, subscriptions);
-
-    const throttledHandler = () => {
-      if (this.throttle <= 0) {
-        return onChange();
-      }
-
-      if (!this.throttleTimeout) {
-        this.throttleTimeout = setTimeout(() => {
-          this.throttleTimeout = undefined;
-          onChange();
-        }, this.throttle);
-      }
-    };
-
-    for (let i = 0; i < subscriptions.length; i++) {
-      const outstandingSubscription = subscriptions[i](throttledHandler);
-      this.activeSubscriptions.push(outstandingSubscription);
+    if (!this.throttleTimeout) {
+      this.throttleTimeout = setTimeout(() => {
+        this.throttleTimeout = undefined;
+        this.onChange();
+      }, this.throttle);
     }
   };
 
-  unsubscribe = () => {
-    for (let i = 0; i < this.activeSubscriptions.length; i++) {
-      this.activeSubscriptions[i].dispose();
-    }
+  handleChange(): void {
+    this.throttledHandler();
+  }
 
-    this.activeSubscriptions = [];
-  };
+  handleCollectionChange(): void {
+    this.throttledHandler();
+  }
+
+  subscribe() {
+    this.observers.forEach(x => x.subscribe(this));
+  }
+
+  unsubscribe() {
+    this.observers.forEach(x => x.unsubscribe(this));
+  }
 
   private getObjectType(obj: unknown) {
     if (obj instanceof Date) {
       return 'date';
-    } else if (obj instanceof Array) {
-      // return 'array';
     }
     return typeof obj;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private getAllSubscriptions(model: any, subscriptions: CollectionObserver['subscribe'][]) {
+  private getObservers(model: any) {
     if (model instanceof Array) {
-      const subscription = this.bindingEngine.collectionObserver(model).subscribe;
-      subscriptions.push(subscription);
+      const observer = this.observerLocator.getArrayObserver(model);
+      this.observers.push(observer);
     }
 
     for (const property in model) {
       const typeOfData = this.getObjectType(model[property]);
       switch (typeOfData) {
         case 'object':
-          this.getAllSubscriptions(model[property], subscriptions);
+          this.getObservers(model[property]);
           break;
-        // case 'array': {
-        //   const underlyingArray = model[property]() as unknown[];
-        //   underlyingArray.forEach((_, index) => this._getAllSubscriptions(underlyingArray[index], subscriptions));
-
-        //   const arraySubscription = this.bindingEngine.propertyObserver(model, property).subscribe;
-        //   if (arraySubscription) {
-        //     subscriptions.push(arraySubscription);
-        //   }
-        //   break;
-        // }
         default: {
-          const subscription = this.bindingEngine.propertyObserver(model, property).subscribe;
-          if (subscription) {
-            subscriptions.push(subscription);
+          const observer = this.observerLocator.getObserver(model as object, property);
+          if (observer) {
+            this.observers.push(observer);
           }
           break;
         }

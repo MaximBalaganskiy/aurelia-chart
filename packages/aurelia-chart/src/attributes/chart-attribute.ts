@@ -1,11 +1,9 @@
-import { inject, customAttribute, bindable, bindingMode } from 'aurelia-framework';
-import { ModelObserver } from '../observers/model-observer';
+import { bindable, BindingMode, customAttribute, INode } from 'aurelia';
 import { Chart, ChartOptions, ChartData, ChartConfiguration, ChartType } from 'chart.js';
 
 @customAttribute('chart')
-@inject(Element, ModelObserver)
 export class ChartAttribute {
-  constructor(private element: HTMLCanvasElement, private modelObserver: ModelObserver) { }
+  constructor(@INode private element: HTMLCanvasElement) { }
 
   activeChart?: Chart;
   private chartData: ChartConfiguration;
@@ -14,40 +12,18 @@ export class ChartAttribute {
   type: ChartType;
   typeChanged() {
     this.chartData.type = this.type;
-    if (this.isObserving) {
-      this.refreshChart();
-      this.modelObserver.unsubscribe();
-      this.subscribeToChanges();
-    }
+    this.refreshChart();
   }
 
   @bindable
   data: ChartData;
   dataChanged() {
     this.chartData.data = this.data;
-    if (this.isObserving) {
-      this.refreshChart();
-      this.modelObserver.unsubscribe();
-      this.subscribeToChanges();
-    }
+    this.refreshChart();
   }
 
-  @bindable
-  shouldUpdate: boolean | string;
-
-  private get isObserving() {
-    return this.shouldUpdate === true || this.shouldUpdate === 'true';
-  }
-
-  @bindable
-  throttle?: number;
-
-  @bindable({ defaultBindingMode: bindingMode.twoWay })
+  @bindable({ mode: BindingMode.twoWay })
   nativeOptions: ChartOptions = {};
-
-  bind() {
-    // prevent initial changed handlers call
-  }
 
   attached() {
     this.chartData = {
@@ -59,30 +35,17 @@ export class ChartAttribute {
     this.activeChart = new Chart(this.element, this.chartData);
     this.nativeOptions = this.activeChart.options;
     this.refreshChart();
-
-    if (this.isObserving) {
-      this.subscribeToChanges();
-    }
   }
 
   detached() {
-    if (this.isObserving) {
-      this.modelObserver.unsubscribe();
-    }
-
     this.activeChart?.destroy();
     this.activeChart = undefined;
   }
 
-  refreshChart = () => {
+  refreshChart() {
     if (this.activeChart) {
       this.activeChart.update();
       this.activeChart.resize();
     }
-  };
-
-  subscribeToChanges() {
-    this.modelObserver.throttle = this.throttle ?? 100;
-    this.modelObserver.observe(this.data, this.refreshChart);
   }
 }

@@ -1,19 +1,23 @@
-// eslint-disable-next-line import/no-unassigned-import
-import 'aurelia-bootstrapper';
-import { Aurelia, PLATFORM } from 'aurelia-framework';
+import Aurelia from 'aurelia';
+import { StandardConfiguration } from '@aurelia/runtime-html';
 import {
   Chart, LineController, LineElement, PointElement, LinearScale, Title, DoughnutController, PieController, CategoryScale, ArcElement,
   Legend
 } from 'chart.js';
+import { App } from './app';
+import { ChartConfiguration } from 'aurelia-chart';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, Title, DoughnutController, PieController, CategoryScale, ArcElement, Legend);
 
-export async function configure(aurelia: Aurelia): Promise<void> {
-  aurelia.use
-    .standardConfiguration()
-    .developmentLogging()
-    .plugin(PLATFORM.moduleName('aurelia-chart'));
-
-  await aurelia.start();
-  await aurelia.setRoot(PLATFORM.moduleName('app'));
-}
+Aurelia
+  // .register(StyleConfiguration.shadowDOM({
+  //   // optionally add the shared styles for all components
+  //   sharedStyles: [shared]
+  // }))
+  .register(StandardConfiguration)
+  .register(ChartConfiguration)
+  // To use HTML5 pushState routes, replace previous line with the following
+  // customized router config.
+  // .register(RouterConfiguration.customize({ useUrlFragmentHash: false }))
+  .app(App)
+  .start();

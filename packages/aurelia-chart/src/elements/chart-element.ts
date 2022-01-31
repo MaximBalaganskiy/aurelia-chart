@@ -1,57 +1,41 @@
-import { inject, customElement, useView, bindable, bindingMode, PLATFORM } from 'aurelia-framework';
-import { ModelObserver } from '../observers/model-observer';
+import { bindable, BindingMode, customElement, IObserverLocator } from 'aurelia';
 import { Chart, ChartConfiguration, ChartData, ChartOptions, ChartType } from 'chart.js';
+import { ModelObserver } from '../observers/model-observer';
 
 @customElement('chart')
-@inject(ModelObserver)
-@useView(PLATFORM.moduleName('./chart-element.html'))
 export class ChartElement {
-  constructor(private modelObserver: ModelObserver) { }
+  constructor(@IObserverLocator private observerLocator: IObserverLocator) { }
 
   activeChart?: Chart;
-  private chartData: ChartConfiguration;
+  chartData: ChartConfiguration;
+  modelObserver?: ModelObserver;
 
   @bindable
   type: ChartType;
   typeChanged() {
     this.chartData.type = this.type;
-    if (this.isObserving) {
-      this.refreshChart();
-      this.modelObserver.unsubscribe();
-      this.subscribeToChanges();
-    }
+    this.refreshChart();
   }
 
   @bindable
   data: ChartData;
   dataChanged() {
     this.chartData.data = this.data;
-    if (this.isObserving) {
-      this.refreshChart();
-      this.modelObserver.unsubscribe();
-      this.subscribeToChanges();
-    }
+    this.refreshChart();
+    this.observe();
   }
 
-  @bindable
-  shouldUpdate: boolean | string;
+  @bindable({ set: val => val || val === '' ? true : false, nullable: false })
+  shouldUpdate: boolean;
 
-  private get isObserving() {
-    return this.shouldUpdate === true || this.shouldUpdate === 'true';
-  }
+  @bindable({ set: Number, nullable: false })
+  throttle: number;
 
-  @bindable
-  throttle?: number;
-
-  @bindable({ defaultBindingMode: bindingMode.twoWay })
+  @bindable({ mode: BindingMode.twoWay })
   nativeOptions: ChartOptions = {};
 
   @bindable
   canvasElement: HTMLCanvasElement;
-
-  bind() {
-    // prevent initial changed handlers call
-  }
 
   attached() {
     this.chartData = {
@@ -63,30 +47,29 @@ export class ChartElement {
     this.activeChart = new Chart(this.canvasElement, this.chartData);
     this.nativeOptions = this.activeChart.options;
     this.refreshChart();
-
-    if (this.isObserving) {
-      this.subscribeToChanges();
-    }
+    this.observe();
   }
 
   detached() {
-    if (this.isObserving) {
-      this.modelObserver.unsubscribe();
-    }
-
+    this.modelObserver?.unsubscribe();
     this.activeChart?.destroy();
     this.activeChart = undefined;
   }
 
-  refreshChart = () => {
+  refreshChart() {
     if (this.activeChart) {
       this.activeChart.update();
       this.activeChart.resize();
     }
-  };
+  }
 
-  subscribeToChanges() {
-    this.modelObserver.throttle = this.throttle ?? 100;
-    this.modelObserver.observe(this.data.datasets, this.refreshChart);
+  observe() {
+    this.modelObserver?.unsubscribe();
+    this.modelObserver = undefined;
+    if (!this.shouldUpdate) {
+      return;
+    }
+    this.modelObserver = new ModelObserver(this.observerLocator, this.data, () => this.refreshChart(), this.throttle);
+    this.modelObserver.subscribe();
   }
 }

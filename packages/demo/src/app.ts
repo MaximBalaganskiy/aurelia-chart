@@ -6,11 +6,11 @@ export class App {
     this.resetLineData();
   }
 
-  DynamicDoughnutData: ChartData;
-  SimpleLineData: ChartData;
+  dynamicDoughnutData: ChartData;
+  simpleLineData: ChartData;
 
   resetPieData() {
-    this.DynamicDoughnutData = {
+    this.dynamicDoughnutData = {
       labels: ['Red', 'Green', 'Yellow'],
       datasets: [
         {
@@ -30,7 +30,7 @@ export class App {
   }
 
   resetLineData() {
-    this.SimpleLineData = {
+    this.simpleLineData = {
       labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
       datasets: [
         {
@@ -62,9 +62,9 @@ export class App {
   }
 
   addEntry() {
-    this.DynamicDoughnutData.labels?.push('New Colour');
-    this.DynamicDoughnutData.datasets![0].data?.push(50);
-    (this.DynamicDoughnutData.datasets![0].backgroundColor as string[]).push('#B4FD5C');
+    this.dynamicDoughnutData.labels?.push('New Colour');
+    this.dynamicDoughnutData.datasets[0].data?.push(50);
+    (this.dynamicDoughnutData.datasets[0].backgroundColor as string[]).push('#B4FD5C');
   }
 
 }

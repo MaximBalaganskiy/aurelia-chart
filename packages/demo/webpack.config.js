@@ -1,22 +1,21 @@
 /* eslint-disable */
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const AureliaWebpackPlugin = require('aurelia-webpack-plugin');
+const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 
 const outDir = path.resolve(__dirname, 'dist');
-module.exports = function ({ production = '', stats = 'errors-only' } = {}) {
-  const cssLoaders = [{ loader: 'css-loader', options: { esModule: false } }, 'postcss-loader'];
+module.exports = function (env, { analyze }) {
+  const production = env.production || process.env.NODE_ENV === 'production';
 
   return {
     mode: production === 'production' ? 'production' : 'development',
-    devtool: production ? false : 'source-map',
+    devtool: production ? 'source-map' : 'eval-source-map',
     output: {
       path: outDir,
-      filename: production ? '[name].[chunkhash].bundle.js' : '[name].[hash].bundle.js',
-      sourceMapFilename: production ? '[name].[chunkhash].bundle.map' : '[name].[hash].bundle.map',
-      chunkFilename: production ? '[name].[chunkhash].chunk.js' : '[name].[hash].chunk.js'
+      filename: production ? '[name].[chunkhash].bundle.js' : '[name].[fullhash].bundle.js',
+      sourceMapFilename: production ? '[name].[chunkhash].bundle.map' : '[name].[fullhash].bundle.map',
+      chunkFilename: production ? '[name].[chunkhash].chunk.js' : '[name].[fullhash].chunk.js'
     },
-    stats: stats,
     resolve: {
       extensions: ['.ts', '.js'],
       modules: ['src', 'node_modules', '../../node_modules'].map(x => path.resolve(x)),
@@ -30,29 +29,16 @@ module.exports = function ({ production = '', stats = 'errors-only' } = {}) {
     },
     module: {
       rules: [
-        { test: /\.(woff|woff2)(\?|$)/, loader: 'url-loader?limit=1' },
-        { test: /\.(png|eot|ttf|svg)(\?|$)/, use: { loader: 'url-loader', options: { limit: 1000, esModule: false } } },
-        { test: /\.ts$/, loader: 'ts-loader' },
-        { test: /\.html$/, loader: 'html-loader' },
-        // { test: /\.scss$/i, issuer: /(\.html|empty-entry\.js)$/i, use: scssLoaders },
-        // { test: /\.scss$/i, issuer: /\.ts$/i, use: ['style-loader', ...scssLoaders] },
-        { test: /\.css$/i, issuer: [{ not: [{ test: /\.html$/i }] }], use: ['style-loader', 'css-loader'] },
-        {
-          test: /\.css$/i, issuer: [{ test: /\.html$/i }],
-          // CSS required in templates cannot be extracted safely
-          // because Aurelia would try to require it again in runtime
-          use: ['css-loader']
-        },
-      ]
+        { test: /\.(png|gif|jpg|cur|ttf|eot|svg|otf|woff2|woff)$/i, type: 'asset' },
+        { test: /\.css$/i, use: ['style-loader', 'css-loader'] },
+        { test: /\.ts$/i, use: ['ts-loader', '@aurelia/webpack-loader'], exclude: /node_modules/ },
+        { test: /\.js$/, enforce: 'pre', use: ['source-map-loader'], include: [/@aurelia\\kernel/] },
+        { test: /\.html$/i, use: '@aurelia/webpack-loader', exclude: /node_modules/ }
+     ]
     },
     plugins: [
-      new AureliaWebpackPlugin.AureliaPlugin({
-        aureliaApp: 'src/main',
-        dist: 'es2015',
-        viewsFor: '{**/!(tslib)*.{ts,js},../**/*.{ts,js}}'
-      }),
-      new AureliaWebpackPlugin.GlobDependenciesPlugin({ 'main': ['src/{views,elements,converters,attributes}/**/*.{ts,html}'] }),
-      new HtmlWebpackPlugin({ template: './index.ejs' })
-    ]
+      new HtmlWebpackPlugin({ template: './index.ejs' }),
+      analyze && new BundleAnalyzerPlugin()
+    ].filter(p => p)
   };
 };

@@ -1,12 +1,11 @@
-import { ModelObserver } from './observers/model-observer';
-import { FrameworkConfiguration, PLATFORM } from 'aurelia-framework';
+import { ChartElement } from './elements/chart-element';
+import { IContainer } from '@aurelia/kernel';
+import { ChartAttribute } from './attributes/chart-attribute';
 
-export function configure(aurelia: FrameworkConfiguration) {
-  aurelia.globalResources([
-    PLATFORM.moduleName('./elements/chart-element'),
-    PLATFORM.moduleName('./attributes/chart-attribute')
-  ]);
-  aurelia.container.registerTransient(ModelObserver);
-}
+export { ChartElement, ChartAttribute };
 
-export { ChartElement } from './elements/chart-element';
+export const ChartConfiguration = {
+  register(container: IContainer): IContainer {
+    return container.register(ChartElement, ChartAttribute);
+  }
+};
